@@ -20,6 +20,7 @@ directions = {
 
 def parse(lines):
     res = {}
+    res_points = set()
     for y in range(0, len(lines)):
         for x in range(0, len(lines[0])):
             c = lines[y][x]
@@ -28,7 +29,9 @@ def parse(lines):
             res[(x,y)] = directions[c]
             if c == "S":
                 res["start"] = (x,y)
-    return res
+            if c == '.':
+                res_points.add((x,y))
+    return (res, res_points)
 
 
 def start_with(grid, pipe):
@@ -55,17 +58,57 @@ def make_graph(grid):
 
 
 lines = open("sample1.txt").readlines()
+lines = open("sample2.2.txt").readlines()
+lines = open("sample2.3.txt").readlines()
 lines = open("input.txt").readlines()
-grid = parse(lines)
+grid, points = parse(lines)
 
-for start in [{"N", "S"}, {"W", "E"}, {"N", "E"}, {"N", "W"}, {"S", "W"}, {"S", "E"}]:
-    grid = start_with(grid, start)
-    G = make_graph(grid)
+def find_cycle(grid):
+  for start in [{"N", "S"}, {"W", "E"}, {"N", "E"}, {"N", "W"}, {"S", "W"}, {"S", "E"}]:
+      grid = start_with(grid, start)
+      G = make_graph(grid)
+  
+      try:
+          cycles = nx.find_cycle(G, source=grid["start"]) 
+          return [p[0] for p in cycles]
+      except:
+          pass
 
-    try:
-        cycles = nx.find_cycle(G, source=grid["start"]) 
-        print(len(cycles)/2)
-    except:
-        print(f"no cycle for {start}")
+def intersects(cycle, p):
+    i= cycle.index(p)
+    l = len(cycle)
+    b = cycle[(i-1) % l]
+    a = cycle[(i+1) % l]
+
+    # we want to rule out "touch points", i.e. hitting p in 
+    # a.
+    # pb
+    if {(0,0), (b[0] - p[0], b[1]-p[1]), (a[0] - p[0], a[1]-p[1])} == {(0,0), (0, -1), (1,0)}:
+        return False
+    # and 
+    # ap
+    # .b
+    if {(0,0), (b[0] - p[0], b[1]-p[1]), (a[0] - p[0], a[1]-p[1])} == {(0,0), (0, 1), (-1,0)}:
+        return False
+    return True
+
+def is_inside(cycle, p):
+    line = [(p[0] - d, p[1] - d) for d in range(0, min(p)+1)]
+    potential_intersections = set(line) & set(cycle)
+    intersections = [q for q in potential_intersections if intersects(cycle, q)]
+
+    if len(intersections)%2 != 0:
+        return True
+    else:
+        return False
 
 
+cycle = find_cycle(grid)
+#print(cycle)
+#print(is_inside(cycle, (9,8)))
+
+points = grid.keys() - set(cycle) - {"start"}
+inner = [p for p in points if is_inside(cycle, p)]
+# print(points)
+# print(inner)
+print(len(inner))
